@@ -5,7 +5,7 @@ import { ImageUploadSection } from "@/components/ImageUploadSection"
 import { ResultsSection } from "@/components/ResultsSection"
 import { GoalsPanel } from "@/components/GoalsPanel"
 import { Footer } from "@/components/Footer"
-import { sampleNutritionData, defaultGoals } from "@/data/nutritionData"
+import { defaultGoals } from "@/data/nutritionData"
 
 function App() {
   const [darkMode, setDarkMode] = useState(false)
@@ -39,20 +39,33 @@ function App() {
   const handleAnalyze = async ({ image, foodName }) => {
     setIsAnalyzing(true)
     
-    // Simulate API call with delay
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Use sample data (in a real app, this would be the API response)
-    setNutritionData({
-      ...sampleNutritionData,
-      productName: foodName || sampleNutritionData.productName,
-    })
-    
-    setIsAnalyzing(false)
-    setCurrentView("results")
-    
-    // Scroll to top of results
-    window.scrollTo({ top: 0, behavior: "smooth" })
+    try {
+      const formData = new FormData()
+
+      formData.append("image", image)
+      formData.append("foodName", foodName)
+
+      const response = await fetch("http://localhost:8000/api/analyze", {
+        method: "POST",
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to analyze nutrition label")
+      }
+
+      const data = await response.json()
+
+      setNutritionData(data)
+      setCurrentView("results")
+
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    } catch (error) {
+      console.error(error)
+      alert("Something went wrong while trying to analyze the nutrition label.")
+    } finally {
+      setIsAnalyzing(false)
+    }
   }
 
   const handleBackToHome = () => {
