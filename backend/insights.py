@@ -23,57 +23,114 @@ def fallback_insights(error_message: str = ""):
     }
 
 
-def local_insights_from_parsed_data(parsed_data: dict):
-    calories = parsed_data.get("calories") or 0
-    protein = parsed_data.get("protein") or 0
-    fiber = parsed_data.get("dietaryFiber") or 0
-    added_sugar = parsed_data.get("addedSugars") or 0
-    sodium = parsed_data.get("sodium") or 0
-    sat_fat = parsed_data.get("saturatedFat") or 0
-    vitamin_d = parsed_data.get("vitaminD") or 0
+def local_insights_from_parsed_data(nutrition_response: dict):
+    # Extract values from nutrition_response structure (with percentDailyValue)
+    macro = nutrition_response.get("macronutrients", {})
+    micro = nutrition_response.get("micronutrients", {})
+    
+    # Get amounts and percentDailyValues
+    calories_amount = macro.get("calories", {}).get("amount") or 0
+    calories_pv = macro.get("calories", {}).get("percentDailyValue") or 0
+    
+    protein_amount = macro.get("protein", {}).get("amount") or 0
+    protein_pv = macro.get("protein", {}).get("percentDailyValue") or 0
+    
+    fiber_amount = macro.get("dietaryFiber", {}).get("amount") or 0
+    fiber_pv = macro.get("dietaryFiber", {}).get("percentDailyValue") or 0
+    
+    added_sugar_amount = macro.get("addedSugars", {}).get("amount") or 0
+    added_sugar_pv = macro.get("addedSugars", {}).get("percentDailyValue") or 0
+    
+    sodium_amount = macro.get("sodium", {}).get("amount") or 0
+    sodium_pv = macro.get("sodium", {}).get("percentDailyValue") or 0
+    
+    sat_fat_amount = macro.get("saturatedFat", {}).get("amount") or 0
+    sat_fat_pv = macro.get("saturatedFat", {}).get("percentDailyValue") or 0
+    
+    vitamin_d_amount = micro.get("vitaminD", {}).get("amount") or 0
+    vitamin_d_pv = micro.get("vitaminD", {}).get("percentDailyValue") or 0
 
     score = 70
-    if protein >= 8:
-        score += 5
-    if fiber >= 3:
-        score += 5
-    if added_sugar <= 5:
-        score += 3
-    if sat_fat <= 2:
+
+    # Positive factors (increase score)
+    if protein_pv and protein_pv >= 20:  # High protein (20%+ DV)
+        score += 8
+    elif protein_pv and protein_pv >= 10:  # Moderate protein (10-19% DV)
+        score += 4
+    
+    if fiber_pv and fiber_pv >= 10:  # Good fiber (10%+ DV)
+        score += 6
+    elif fiber_pv and fiber_pv >= 5:  # Some fiber (5-9% DV)
         score += 2
-    if sodium > 400:
+    
+    # Negative factors (decrease score)
+    if added_sugar_pv and added_sugar_pv >= 50:  # Very high added sugar (50%+ DV)
+        score -= 15
+    elif added_sugar_pv and added_sugar_pv >= 20:  # High added sugar (20-49% DV)
+        score -= 10
+    elif added_sugar_pv and added_sugar_pv >= 10:  # Moderate added sugar (10-19% DV)
+        score -= 5
+    
+    if sat_fat_pv and sat_fat_pv >= 20:  # High saturated fat (20%+ DV)
         score -= 8
-    elif sodium > 200:
-        score -= 4
-    if calories > 350:
-        score -= 6
-    elif calories > 250:
+    elif sat_fat_pv and sat_fat_pv >= 10:  # Moderate saturated fat (10-19% DV)
         score -= 3
-    if vitamin_d == 0:
+    
+    if sodium_pv and sodium_pv >= 20:  # High sodium (20%+ DV)
+        score -= 8
+    elif sodium_pv and sodium_pv >= 10:  # Moderate sodium (10-19% DV)
+        score -= 3
+    
+    if fiber_pv and fiber_pv < 5:  # Low fiber (under 5% DV)
+        score -= 3
+    
+    if vitamin_d_pv and vitamin_d_pv == 0:  # No vitamin D
         score -= 2
+    
+    if calories_pv and calories_pv > 20:  # High calories only if over 20% DV
+        score -= 3
 
     score = max(0, min(100, int(score)))
 
     highlights = []
     concerns = []
 
-    if protein >= 8:
-        highlights.append(f"Good source of protein ({protein}g).")
-    if fiber >= 3:
-        highlights.append(f"Provides dietary fiber ({fiber}g).")
-    if added_sugar <= 5:
-        highlights.append(f"Low in added sugars ({added_sugar}g).")
-    if sat_fat <= 2:
-        highlights.append(f"Low saturated fat ({sat_fat}g).")
+    # Build highlights based on percentDailyValue
+    if protein_pv and protein_pv >= 20:
+        highlights.append(f"Good source of protein ({protein_amount}g, {protein_pv}% DV).")
+    if fiber_pv and fiber_pv >= 10:
+        highlights.append(f"Provides good dietary fiber ({fiber_amount}g, {fiber_pv}% DV).")
+    if added_sugar_pv and added_sugar_pv <= 5:
+        highlights.append(f"Low in added sugars ({added_sugar_amount}g, {added_sugar_pv}% DV).")
+    if sat_fat_pv and sat_fat_pv <= 5:
+        highlights.append(f"Low in saturated fat ({sat_fat_amount}g, {sat_fat_pv}% DV).")
+    if sodium_pv and sodium_pv <= 5:
+        highlights.append(f"Low in sodium ({sodium_amount}mg, {sodium_pv}% DV).")
 
-    if sodium > 200:
-        concerns.append(f"Sodium is on the higher side ({sodium}mg).")
-    if added_sugar > 10:
-        concerns.append(f"Added sugar is relatively high ({added_sugar}g).")
-    if calories > 300:
-        concerns.append(f"Calories are relatively high per serving ({calories}).")
-    if vitamin_d == 0:
-        concerns.append("Provides little or no Vitamin D.")
+    # Build concerns based on percentDailyValue
+    if added_sugar_pv and added_sugar_pv >= 50:
+        concerns.append(f"Very high in added sugars ({added_sugar_amount}g, {added_sugar_pv}% DV).")
+    elif added_sugar_pv and added_sugar_pv >= 20:
+        concerns.append(f"High in added sugars ({added_sugar_amount}g, {added_sugar_pv}% DV).")
+    
+    if sat_fat_pv and sat_fat_pv >= 20:
+        concerns.append(f"High in saturated fat ({sat_fat_amount}g, {sat_fat_pv}% DV).")
+    elif sat_fat_pv and sat_fat_pv >= 10:
+        concerns.append(f"Moderate saturated fat ({sat_fat_amount}g, {sat_fat_pv}% DV).")
+    
+    if sodium_pv and sodium_pv >= 20:
+        concerns.append(f"High in sodium ({sodium_amount}mg, {sodium_pv}% DV).")
+    elif sodium_pv and sodium_pv >= 10:
+        concerns.append(f"Moderate sodium content ({sodium_amount}mg, {sodium_pv}% DV).")
+    
+    if fiber_pv and fiber_pv < 5:
+        concerns.append(f"Low in dietary fiber ({fiber_amount}g, {fiber_pv}% DV).")
+    
+    if vitamin_d_pv and vitamin_d_pv == 0:
+        concerns.append("Contains no Vitamin D.")
+    
+    if calories_pv and calories_pv > 20:
+        concerns.append(f"Relatively high in calories ({calories_amount} kcal, {calories_pv}% DV).")
 
     if not highlights:
         highlights.append("Contains measurable nutrients based on the label.")
@@ -81,8 +138,9 @@ def local_insights_from_parsed_data(parsed_data: dict):
         concerns.append("No major nutrition red flags for a single serving.")
 
     summary = (
-        f"This serving has {calories} calories, {protein}g protein, and {fiber}g fiber. "
-        f"It includes {added_sugar}g added sugar and {sodium}mg sodium."
+        f"This serving contains {calories_amount} calories ({calories_pv}% DV). "
+        f"Added sugars: {added_sugar_amount}g ({added_sugar_pv}% DV). "
+        f"Sodium: {sodium_amount}mg ({sodium_pv}% DV)."
     )
 
     return {
@@ -199,6 +257,6 @@ Rules:
           break
 
     print("Gemini insights error:", last_error)
-    local = local_insights_from_parsed_data(parsed_data)
+    local = local_insights_from_parsed_data(nutrition_response)
     local["debugError"] = last_error
     return local
