@@ -5,17 +5,15 @@ from bson import ObjectId
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-<<<<<<< HEAD
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 
-load_dotenv()
-=======
 from ocr import extract_text_from_image
->>>>>>> a14d7906d3655076926f8084c8e8c3f26f64cb47
+
+load_dotenv()
 
 app = FastAPI()
 
