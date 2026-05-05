@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from ocr import extract_text_from_image
 
 app = FastAPI()
 
@@ -25,8 +26,12 @@ async def analyze_label(
   image: UploadFile = File(...),
   foodName: str = Form("")
 ):
+  image_bytes = await image.read()
+  ocr_text = extract_text_from_image(image_bytes)
+
   return {
     "productName": foodName or "Unknown Food",
+    "ocrText": ocr_text,
     "brand": "Example Brand",
 
     "servingSize": "1 serving",
