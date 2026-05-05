@@ -26,25 +26,6 @@ export function LandingPage() {
         onSecondary={() => navigate("/login")}
       />
 
-      <section id="features" className="bg-muted/40 py-16 sm:py-24">
-        <div className="mx-auto grid max-w-6xl gap-6 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
-          <FeatureCard
-            icon={<ScanLine className="h-5 w-5" />}
-            title="Smart Label Capture"
-            description="Upload a photo and get a clean, structured breakdown of nutrition data."
-          />
-          <FeatureCard
-            icon={<Sparkles className="h-5 w-5" />}
-            title="Actionable Insights"
-            description="See what matters most with highlights, warnings, and goal alignment."
-          />
-          <FeatureCard
-            icon={<ShieldCheck className="h-5 w-5" />}
-            title="Private by Default"
-            description="Your scans are secured behind your account with access controls."
-          />
-        </div>
-      </section>
 
       <section id="benefits" className="bg-background py-16 sm:py-24">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:items-center lg:px-8">

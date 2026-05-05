@@ -17,10 +17,10 @@ export function HeroSection({
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           {/* Badge */}
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium text-primary">AI-Powered Analysis</span>
-          </div>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-sm">
+  <Sparkles className="h-4 w-4" />
+  Built for smarter nutrition decisions
+</div>
 
           {/* Headline */}
           <h1 className="mx-auto max-w-4xl text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
@@ -33,6 +33,16 @@ export function HeroSection({
             NutriScan turns labels into insights and keeps your scans organized in a personal
             dashboard so you can make faster, healthier choices.
           </p>
+
+          <section className="grid items-center gap-12 lg:grid-cols-2">
+  <div>
+    {/* badge, heading, paragraph, buttons */}
+  </div>
+
+  <div>
+    {/* sample scan result card */}
+  </div>
+</section>
 
           {/* CTA Buttons */}
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -66,18 +76,18 @@ export function HeroSection({
         <div className="mt-16 grid gap-6 sm:grid-cols-3">
           <FeatureCard
             icon={<Shield className="h-6 w-6" />}
-            title="Secure Access"
-            description="Your scans live behind a login so only you can view them."
+            title="📸 Label Scanning"
+            description="Upload or snap a photo of any nutrition label and instantly extract clean, structured data without manual entry."
           />
           <FeatureCard
             icon={<Sparkles className="h-6 w-6" />}
-            title="Instant Insights"
-            description="Transform labels into digestible highlights and concerns."
+            title="🧠 Nutrition Breakdown"
+            description="Understand exactly what you're consuming with a detailed breakdown of calories, macros, and key nutrients in seconds."
           />
           <FeatureCard
             icon={<ArrowRight className="h-6 w-6" />}
-            title="Personal Dashboard"
-            description="Save every scan and revisit them whenever you need." 
+            title="⚠️ Health Highlights"
+            description="Quickly spot high sugar, sodium, or other concerns with smart highlights that help you make better food choices." 
           />
         </div>
       </div>
