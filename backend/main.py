@@ -12,6 +12,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 
+from insights import generate_insights
 from ocr import extract_text_from_image
 from parser import parse_nutrition_text
 
@@ -169,6 +170,7 @@ async def analyze_label(
     image_bytes = await image.read()
     ocr_text = extract_text_from_image(image_bytes)
     parsed_data = parse_nutrition_text(ocr_text)
+    insights = generate_insights(parsed_data, ocr_text)
 
     return {
         "productName": foodName or "Unknown Food",
@@ -266,17 +268,7 @@ async def analyze_label(
             }
         ],
 
-        "insights": {
-            "healthScore": 78,
-            "summary": "This is placeholder nutrition analysis from the backend.",
-            "highlights": [
-                "Good source of protein",
-                "Moderate calorie amount"
-            ],
-            "concerns": [
-                "Check added sugar content"
-            ]
-        }
+        "insights": insights
     }
 
 
