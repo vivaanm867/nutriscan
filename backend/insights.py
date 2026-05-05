@@ -5,7 +5,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types
 
 
 env_path = Path(__file__).parent / ".env"
@@ -14,13 +13,13 @@ load_dotenv(dotenv_path=env_path)
 
 def fallback_insights(error_message: str = ""):
     return {
-        "healthScore": 70,
-        "summary": "Nutrition insights are temporarily unavailable, but basic nutrition data was extracted.",
-        "highlights": [],
-        "concerns": [
-            "Could not generate AI nutrition insights right now."
-        ],
-        "debugError": error_message
+      "healthScore": 70,
+      "summary": "Nutrition insights are temporarily unavailable, but basic nutrition data was extracted.",
+      "highlights": [],
+      "concerns": [
+        "Could not generate AI nutrition insights right now."
+      ],
+      "debugError": error_message
     }
 
 
@@ -140,41 +139,39 @@ Rules:
     last_error = ""
 
     for model_name in models_to_try:
-        for attempt in range(3):
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json"
-                    )
-                )
+      for attempt in range(3):
+        try:
+          response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config={"response_mime_type": "application/json"}
+          )
 
-                text = (response.text or "").strip()
-                text = text.replace("```json", "").replace("```", "").strip()
+          text = (response.text or "").strip()
+          text = text.replace("```json", "").replace("```", "").strip()
 
-                try:
-                    insights = json.loads(text)
-                except json.JSONDecodeError:
-                    last_error = f"Gemini returned non-JSON text: {text}"
-                    break
+          try:
+            insights = json.loads(text)
+          except json.JSONDecodeError:
+            last_error = f"Gemini returned non-JSON text: {text}"
+            break
 
-                return {
-                    "healthScore": insights.get("healthScore", 70),
-                    "summary": insights.get(
-                        "summary",
-                        "Nutrition insights were generated, but no summary was provided."
-                    ),
-                    "highlights": insights.get("highlights", []),
-                    "concerns": insights.get("concerns", [])
-                }
+          return {
+            "healthScore": insights.get("healthScore", 70),
+            "summary": insights.get(
+                "summary",
+                "Nutrition insights were generated, but no summary was provided."
+            ),
+            "highlights": insights.get("highlights", []),
+            "concerns": insights.get("concerns", [])
+          }
 
-            except Exception as error:
-                last_error = str(error)
-                if attempt < 2:
-                    time.sleep(1.2 * (attempt + 1))
-                    continue
-                break
+        except Exception as error:
+          last_error = str(error)
+          if attempt < 2:
+            time.sleep(1.2 * (attempt + 1))
+            continue
+          break
 
     print("Gemini insights error:", last_error)
     local = local_insights_from_parsed_data(parsed_data)

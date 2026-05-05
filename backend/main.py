@@ -167,10 +167,30 @@ async def analyze_label(
     image: UploadFile = File(...),
     foodName: str = Form("")
 ):
-    image_bytes = await image.read()
-    ocr_text = extract_text_from_image(image_bytes)
-    parsed_data = parse_nutrition_text(ocr_text)
-    insights = generate_insights(parsed_data, ocr_text)
+    try:
+        image_bytes = await image.read()
+        ocr_text = extract_text_from_image(image_bytes)
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"OCR failed: {str(error)}"
+        )
+
+    try:
+        parsed_data = parse_nutrition_text(ocr_text)
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Parser failed: {str(error)}"
+        )
+
+    try:
+        insights = generate_insights(parsed_data, ocr_text)
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Insights failed: {str(error)}"
+        )
 
     return {
         "productName": foodName or "Unknown Food",
