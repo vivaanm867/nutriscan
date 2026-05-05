@@ -6,7 +6,7 @@ import { MicronutrientSection } from "@/components/MicronutrientSection"
 import { IngredientCards } from "@/components/IngredientCards"
 import { NutritionSummary } from "@/components/NutritionSummary"
 
-export function ResultsSection({ nutritionData, onBack }) {
+export function ResultsSection({ nutritionData, onBack, onSave, isSaving }) {
   return (
     <section id="results" className="bg-background py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -72,8 +72,8 @@ export function ResultsSection({ nutritionData, onBack }) {
           <Button onClick={onBack} variant="outline" size="lg">
             Scan Another Label
           </Button>
-          <Button size="lg" className="gap-2">
-            Save to History
+          <Button size="lg" className="gap-2" onClick={onSave} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save to History"}
           </Button>
         </div>
       </div>

@@ -1,7 +1,12 @@
-import { Camera, Sparkles, Shield, ArrowRight } from "lucide-react"
+import { Sparkles, Shield, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 
-export function HeroSection({ onStartScan }) {
+export function HeroSection({
+  primaryLabel = "Get Started",
+  secondaryLabel = "Log In",
+  onPrimary,
+  onSecondary,
+}) {
   return (
     <section id="home" className="relative overflow-hidden bg-background py-16 sm:py-24">
       {/* Background gradient */}
@@ -19,26 +24,24 @@ export function HeroSection({ onStartScan }) {
 
           {/* Headline */}
           <h1 className="mx-auto max-w-4xl text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-            Decode Your{" "}
-            <span className="text-primary">Nutrition Labels</span>{" "}
-            Instantly
+            Scan, understand, and track your{" "}
+            <span className="text-primary">nutrition</span>
           </h1>
 
           {/* Subheadline */}
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-muted-foreground sm:text-xl">
-            Upload a photo of any nutrition label and get instant, easy-to-understand insights 
-            about what you&apos;re eating. Make informed decisions for a healthier you.
+            NutriScan turns labels into insights and keeps your scans organized in a personal
+            dashboard so you can make faster, healthier choices.
           </p>
 
           {/* CTA Buttons */}
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Button size="lg" onClick={onStartScan} className="gap-2">
-              <Camera className="h-5 w-5" />
-              Scan a Label
+            <Button size="lg" onClick={onPrimary} className="gap-2">
+              {primaryLabel}
               <ArrowRight className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="lg">
-              Learn More
+            <Button variant="outline" size="lg" onClick={onSecondary}>
+              {secondaryLabel}
             </Button>
           </div>
 
@@ -46,15 +49,15 @@ export function HeroSection({ onStartScan }) {
           <div className="mt-12 flex flex-wrap items-center justify-center gap-8 text-muted-foreground">
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
-              <span className="text-sm">Privacy First</span>
+              <span className="text-sm">Account Protected</span>
             </div>
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              <span className="text-sm">99% Accuracy</span>
+              <span className="text-sm">Smart Insights</span>
             </div>
             <div className="flex items-center gap-2">
-              <Camera className="h-5 w-5 text-primary" />
-              <span className="text-sm">Instant Results</span>
+              <ArrowRight className="h-5 w-5 text-primary" />
+              <span className="text-sm">Organized History</span>
             </div>
           </div>
         </div>
@@ -62,19 +65,19 @@ export function HeroSection({ onStartScan }) {
         {/* Feature cards preview */}
         <div className="mt-16 grid gap-6 sm:grid-cols-3">
           <FeatureCard
-            icon={<Camera className="h-6 w-6" />}
-            title="Snap & Scan"
-            description="Simply take a photo of any nutrition label or upload an existing image."
+            icon={<Shield className="h-6 w-6" />}
+            title="Secure Access"
+            description="Your scans live behind a login so only you can view them."
           />
           <FeatureCard
             icon={<Sparkles className="h-6 w-6" />}
-            title="AI Analysis"
-            description="Our AI breaks down complex nutrition data into easy-to-understand insights."
+            title="Instant Insights"
+            description="Transform labels into digestible highlights and concerns."
           />
           <FeatureCard
-            icon={<Shield className="h-6 w-6" />}
-            title="Track Goals"
-            description="Set your nutrition goals and see how each food fits your diet."
+            icon={<ArrowRight className="h-6 w-6" />}
+            title="Personal Dashboard"
+            description="Save every scan and revisit them whenever you need." 
           />
         </div>
       </div>
