@@ -5,6 +5,7 @@ from bson import ObjectId
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+<<<<<<< HEAD
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,6 +13,9 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 
 load_dotenv()
+=======
+from ocr import extract_text_from_image
+>>>>>>> a14d7906d3655076926f8084c8e8c3f26f64cb47
 
 app = FastAPI()
 
@@ -159,8 +163,12 @@ async def analyze_label(
     foodName: str = Form(""),
     current_user = Depends(get_current_user)
 ):
+  image_bytes = await image.read()
+  ocr_text = extract_text_from_image(image_bytes)
+
   return {
     "productName": foodName or "Unknown Food",
+    "ocrText": ocr_text,
     "brand": "Example Brand",
 
     "servingSize": "1 serving",
