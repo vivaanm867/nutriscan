@@ -93,7 +93,7 @@ def local_insights_from_parsed_data(parsed_data: dict):
     }
 
 
-def generate_insights(parsed_data: dict, ocr_text: str = ""):
+def generate_insights(nutrition_response: dict, ocr_text: str = ""):
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
     if not api_key:
@@ -106,13 +106,10 @@ def generate_insights(parsed_data: dict, ocr_text: str = ""):
     prompt = f"""
 You are helping analyze a nutrition label for a food label reader app.
 
-Use the parsed nutrition data and OCR text below to produce a clear, helpful nutrition summary.
+Use the nutrition response data below to produce a clear, helpful nutrition summary.
 
-Parsed nutrition data:
-{json.dumps(parsed_data, indent=2)}
-
-OCR text:
-{ocr_text}
+Nutrition response (with calculated percentDailyValue):
+{json.dumps(nutrition_response, indent=2)}
 
 Return ONLY valid JSON in this exact format:
 {{
@@ -122,17 +119,45 @@ Return ONLY valid JSON in this exact format:
   "concerns": ["concern 1", "concern 2"]
 }}
 
+IMPORTANT INTERPRETATION RULES:
+- Use percentDailyValue to judge if a nutrient is low, moderate, or high.
+- Low = 5% DV or less
+- Moderate = 5% to 19% DV (for most nutrients) OR 10-19% for calories
+- High = 20% DV or more
+- Very High = 50% DV or more
+
+CALORIE INTERPRETATION:
+- 370 calories (18-19% of 2000) = MODERATE, not high. Only flag calories as high if above 20% DV.
+
+HIGHLIGHT NUTRIENTS (when high/very high):
+- Added Sugars at 66% DV = VERY HIGH - this is a major concern
+- Saturated Fat at 15% DV = moderate concern
+- Sodium at 17% DV = moderate concern
+- Fiber at 4% DV = LOW, note as a negative
+
+NUTRIENT FOCUS:
+- Focus on high percentDailyValue nutrients, especially:
+  1. Added sugars (flag as very high if 50%+ DV)
+  2. Saturated fat (flag if 20%+ DV)
+  3. Sodium (flag if 20%+ DV)
+  4. Low fiber (flag if under 10% DV)
+  5. Low vitamin D (flag if 0% DV)
+  6. Do NOT flag calories as high unless above 20% DV
+
+SUMMARY GUIDANCE:
+- Be concise: 2-3 short sentences
+- Highlight the main nutritional profile
+- Mention specific percentDailyValue concerns if relevant (e.g., "33g added sugars (66% DV)")
+- Do not give medical advice
+- Keep the language simple for a general user
+
 Rules:
 - Your entire response must be valid JSON.
 - Do not wrap the JSON in markdown.
 - Do not use ```json.
 - healthScore should be an integer from 0 to 100.
-- summary should be 2-3 short sentences.
 - highlights should focus on good nutritional aspects.
-- concerns should focus on things like high sodium, added sugar, saturated fat, low fiber, or high calories.
-- Do not give medical advice.
-- Do not mention that you are an AI.
-- Keep the language simple for a general user.
+- concerns should focus on high percentDailyValue nutrients, not just presence.
 """
 
     models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]

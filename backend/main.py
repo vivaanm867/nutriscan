@@ -14,7 +14,13 @@ from dotenv import load_dotenv
 
 from insights import generate_insights
 from ocr import extract_text_from_image
-from parser import parse_nutrition_text
+from parser import (
+    parse_nutrition_text,
+    extract_servings_per_container,
+    extract_serving_size,
+    extract_product_name
+)
+from daily_values import calculate_daily_value, get_daily_reference
 
 load_dotenv()
 
@@ -184,112 +190,135 @@ async def analyze_label(
             detail=f"Parser failed: {str(error)}"
         )
 
+    # Extract serving metadata from OCR text
+    servings_per_container = extract_servings_per_container(ocr_text) or 1
+    serving_size = extract_serving_size(ocr_text) or "1 serving"
+    product_name = foodName or extract_product_name(ocr_text) or "Unknown Food"
+
+    # Build the full nutrition response
+    nutrition_response = {
+      "productName": product_name,
+      "ocrText": ocr_text,
+      "brand": "Example Brand",
+      "servingSize": serving_size,
+      "servingsPerContainer": servings_per_container,
+
+      "macronutrients": {
+        "calories": {
+          "amount": parsed_data["calories"],
+          "unit": "kcal",
+          "dailyReference": get_daily_reference("calories"),
+          "percentDailyValue": calculate_daily_value("calories", parsed_data["calories"])
+        },
+        "totalFat": {
+          "amount": parsed_data["totalFat"],
+          "unit": "g",
+          "dailyReference": get_daily_reference("totalFat"),
+          "percentDailyValue": calculate_daily_value("totalFat", parsed_data["totalFat"])
+        },
+        "saturatedFat": {
+          "amount": parsed_data["saturatedFat"],
+          "unit": "g",
+          "dailyReference": get_daily_reference("saturatedFat"),
+          "percentDailyValue": calculate_daily_value("saturatedFat", parsed_data["saturatedFat"])
+        },
+        "transFat": {
+          "amount": parsed_data["transFat"],
+          "unit": "g",
+          "percentDailyValue": calculate_daily_value("transFat", parsed_data["transFat"])
+        },
+        "cholesterol": {
+          "amount": parsed_data["cholesterol"],
+          "unit": "mg",
+          "dailyReference": get_daily_reference("cholesterol"),
+          "percentDailyValue": calculate_daily_value("cholesterol", parsed_data["cholesterol"])
+        },
+        "sodium": {
+          "amount": parsed_data["sodium"],
+          "unit": "mg",
+          "dailyReference": get_daily_reference("sodium"),
+          "percentDailyValue": calculate_daily_value("sodium", parsed_data["sodium"])
+        },
+        "totalCarbohydrate": {
+          "amount": parsed_data["totalCarbohydrate"],
+          "unit": "g",
+          "dailyReference": get_daily_reference("totalCarbohydrate"),
+          "percentDailyValue": calculate_daily_value("totalCarbohydrate", parsed_data["totalCarbohydrate"])
+        },
+        "dietaryFiber": {
+          "amount": parsed_data["dietaryFiber"],
+          "unit": "g",
+          "dailyReference": get_daily_reference("dietaryFiber"),
+          "percentDailyValue": calculate_daily_value("dietaryFiber", parsed_data["dietaryFiber"])
+        },
+        "totalSugars": {
+          "amount": parsed_data["totalSugars"],
+          "unit": "g",
+          "percentDailyValue": calculate_daily_value("totalSugars", parsed_data["totalSugars"])
+        },
+        "addedSugars": {
+          "amount": parsed_data["addedSugars"],
+          "unit": "g",
+          "dailyReference": get_daily_reference("addedSugars"),
+          "percentDailyValue": calculate_daily_value("addedSugars", parsed_data["addedSugars"])
+        },
+        "protein": {
+          "amount": parsed_data["protein"],
+          "unit": "g",
+          "dailyReference": get_daily_reference("protein"),
+          "percentDailyValue": calculate_daily_value("protein", parsed_data["protein"])
+        }
+      },
+
+      "micronutrients": {
+        "vitaminD": {
+          "amount": parsed_data["vitaminD"],
+          "unit": "mcg",
+          "dailyReference": get_daily_reference("vitaminD"),
+          "percentDailyValue": calculate_daily_value("vitaminD", parsed_data["vitaminD"])
+        },
+        "calcium": {
+          "amount": parsed_data["calcium"],
+          "unit": "mg",
+          "dailyReference": get_daily_reference("calcium"),
+          "percentDailyValue": calculate_daily_value("calcium", parsed_data["calcium"])
+        },
+        "iron": {
+          "amount": parsed_data["iron"],
+          "unit": "mg",
+          "dailyReference": get_daily_reference("iron"),
+          "percentDailyValue": calculate_daily_value("iron", parsed_data["iron"])
+        },
+        "potassium": {
+          "amount": parsed_data["potassium"],
+          "unit": "mg",
+          "dailyReference": get_daily_reference("potassium"),
+          "percentDailyValue": calculate_daily_value("potassium", parsed_data["potassium"])
+        }
+      },
+
+      "ingredients": [
+        {
+          "name": "Example Ingredient",
+          "description": "This is placeholder ingredient information.",
+          "isHealthy": True
+        }
+      ]
+    }
+
+    # Generate insights passing the full nutrition response
     try:
-        insights = generate_insights(parsed_data, ocr_text)
+        insights = generate_insights(nutrition_response, ocr_text)
     except Exception as error:
         raise HTTPException(
             status_code=500,
             detail=f"Insights failed: {str(error)}"
         )
 
-    return {
-        "productName": foodName or "Unknown Food",
-        "ocrText": ocr_text,
-        "brand": "Example Brand",
-        "servingSize": "1 serving",
-        "servingsPerContainer": 1,
+    # Attach insights to nutrition response
+    nutrition_response["insights"] = insights
 
-        "macronutrients": {
-            "calories": {
-                "amount": parsed_data["calories"],
-                "unit": "kcal",
-                "dailyValue": 8
-            },
-            "totalFat": {
-                "amount": parsed_data["totalFat"],
-                "unit": "g",
-                "dailyValue": 5
-            },
-            "saturatedFat": {
-                "amount": parsed_data["saturatedFat"],
-                "unit": "g",
-                "dailyValue": 5
-            },
-            "transFat": {
-                "amount": parsed_data["transFat"],
-                "unit": "g",
-                "dailyValue": None
-            },
-            "cholesterol": {
-                "amount": parsed_data["cholesterol"],
-                "unit": "mg",
-                "dailyValue": 2
-            },
-            "sodium": {
-                "amount": parsed_data["sodium"],
-                "unit": "mg",
-                "dailyValue": 5
-            },
-            "totalCarbohydrate": {
-                "amount": parsed_data["totalCarbohydrate"],
-                "unit": "g",
-                "dailyValue": 7
-            },
-            "dietaryFiber": {
-                "amount": parsed_data["dietaryFiber"],
-                "unit": "g",
-                "dailyValue": 11
-            },
-            "totalSugars": {
-                "amount": parsed_data["totalSugars"],
-                "unit": "g",
-                "dailyValue": None
-            },
-            "addedSugars": {
-                "amount": parsed_data["addedSugars"],
-                "unit": "g",
-                "dailyValue": 4
-            },
-            "protein": {
-                "amount": parsed_data["protein"],
-                "unit": "g",
-                "dailyValue": 16
-            }
-        },
-
-        "micronutrients": {
-            "vitaminD": {
-                "amount": parsed_data["vitaminD"],
-                "unit": "mcg",
-                "dailyValue": 0
-            },
-            "calcium": {
-                "amount": parsed_data["calcium"],
-                "unit": "mg",
-                "dailyValue": 8
-            },
-            "iron": {
-                "amount": parsed_data["iron"],
-                "unit": "mg",
-                "dailyValue": 6
-            },
-            "potassium": {
-                "amount": parsed_data["potassium"],
-                "unit": "mg",
-                "dailyValue": 4
-            }
-        },
-
-        "ingredients": [
-            {
-                "name": "Example Ingredient",
-                "description": "This is placeholder ingredient information.",
-                "isHealthy": True
-            }
-        ],
-
-        "insights": insights
-    }
+    return nutrition_response
 
 
 @app.get("/api/docs")
