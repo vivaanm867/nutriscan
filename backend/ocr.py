@@ -1,67 +1,39 @@
-import os
-from pathlib import Path
+from io import BytesIO
 
-import requests
-from dotenv import load_dotenv
+import easyocr
+import numpy as np
+from PIL import Image
 
-env_path = Path(__file__).parent / ".env"
-load_dotenv(dotenv_path=env_path)
+_reader = None
+
+
+def _get_reader():
+  global _reader
+
+  if _reader is None:
+    _reader = easyocr.Reader(["en"], gpu=False)
+
+  return _reader
+
 
 def extract_text_from_image(image_bytes: bytes) -> str:
-  api_key = os.getenv("OCR_SPACE_API_KEY")
+  try:
+    image = Image.open(BytesIO(image_bytes)).convert("RGB")
+  except Exception as error:
+    raise RuntimeError(f"Failed to decode image: {error}")
 
-  if not api_key:
-    raise RuntimeError(
-      "OCR_SPACE_API_KEY was not found. Add it to backend\.env"
-    )
-  
-  url = "https://api.ocr.space/parse/image"
+  reader = _get_reader()
+  result = reader.readtext(np.array(image), detail=0, paragraph=True)
 
-  files = {
-    "file": ("nutrition_label.jpg", image_bytes)
-  }
+  if not result:
+    raise RuntimeError("EasyOCR did not find any text in the image.")
 
-  data = {
-    "apikey": api_key,
-    "language": "eng",
-    "isOverlayRequired": "false",
-    "OCREngine": "2",
-    "scale": "true",
-    "detectOrientation": "true",
-  }
+  if isinstance(result, list):
+    extracted_text = "\n".join(line for line in result if str(line).strip())
+  else:
+    extracted_text = str(result).strip()
 
-  headers = {
-    "apikey": api_key
-  }
-
-  response = requests.post(
-    url,
-    files=files,
-    data=data,
-    headers=headers,
-    timeout=30
-  )
-
-  if response.status_code != 200:
-    raise RuntimeError(
-      f"OCR.space request failed with status {response.status_code}: {response.text}"
-    )
-  
-  result = response.json()
-
-  if result.get("IsErroredOnProcessing"):
-    raise RuntimeError(
-      f"OCR.space processing error: {result.get('ErrorMessage')}"
-    )
-  
-  parsed_results = result.get("ParsedResults", [])
-
-  if not parsed_results:
-    raise RuntimeError("OCR.space returned no parsed results.")
-  
-  extracted_text = parsed_results[0].get("ParsedText", "")
-
-  if not extracted_text.strip():
-        raise RuntimeError("OCR.space did not find any text in the image.")
+  if not extracted_text:
+    raise RuntimeError("EasyOCR returned empty text after processing.")
 
   return extracted_text
