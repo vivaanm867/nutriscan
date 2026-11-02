@@ -3,9 +3,6 @@
 Full-stack nutrition label analyzer that reads food label photos with Gemini Vision, parses key nutrients and ingredients, and generates simple AI-powered health insights.
 
 **🔗 Live demo: https://nutriscan-app-2txo.onrender.com**
-*(Hosted on Render's free tier, so the first request may take ~30–50 seconds while the server wakes up.)*
-
-![NutriScan results page](docs/screenshot.png)
 
 ## Overview
 
