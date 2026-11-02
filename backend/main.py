@@ -1,156 +1,181 @@
-from datetime import datetime, timedelta
-import os
+import time
+from collections import defaultdict, deque
+from datetime import datetime, timedelta, timezone
 
+import bcrypt
+import jwt
 from bson import ObjectId
-from dotenv import load_dotenv
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status
+from bson.errors import InvalidId
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from motor.motor_asyncio import AsyncIOMotorClient
-from passlib.context import CryptContext
-from pydantic import BaseModel, EmailStr
-from dotenv import load_dotenv
+from pydantic import BaseModel, EmailStr, Field
 
+import config
+from daily_values import calculate_daily_value, get_daily_reference
 from insights import generate_insights
 from ocr import extract_text_from_image
 from parser import (
-    parse_nutrition_text,
-    extract_servings_per_container,
+    extract_product_name,
     extract_serving_size,
-    extract_product_name
+    extract_servings_per_container,
+    parse_nutrition_text,
 )
-from daily_values import calculate_daily_value, get_daily_reference
 
-load_dotenv()
-
-app = FastAPI()
+app = FastAPI(title="NutriScan API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:5173",
-    ],
-    allow_credentials=True,
+    allow_origins=config.CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-MONGODB_URI = os.getenv("MONGODB_URI")
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRES_MINUTES = 60 * 24
-
 security = HTTPBearer()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-mongo_client = AsyncIOMotorClient(MONGODB_URI) if MONGODB_URI else None
-db = mongo_client["nutriscan"] if mongo_client else None
+mongo_client = AsyncIOMotorClient(config.MONGODB_URI) if config.MONGODB_URI else None
+db = mongo_client[config.MONGODB_DB] if mongo_client else None
 
+
+# ---------- Request models (validated automatically by FastAPI) ----------
 
 class SignupRequest(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=80)
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=128)
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=128)
 
 
 class DocumentCreate(BaseModel):
-    title: str
+    title: str = Field(min_length=1, max_length=120)
     fileSize: int | None = None
     thumbnailUrl: str | None = None
     nutritionData: dict | None = None
 
 
+# ---------- Helpers ----------
+
+def now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def ensure_db():
     if db is None:
-        raise HTTPException(status_code=500, detail="Database is not configured")
+        raise HTTPException(status_code=503, detail="Database is not configured")
 
 
-def create_access_token(payload: dict):
-    expires = datetime.utcnow() + timedelta(minutes=JWT_EXPIRES_MINUTES)
-    to_encode = {**payload, "exp": expires}
-    return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+def create_access_token(user_id: str) -> str:
+    payload = {"sub": user_id, "exp": now_utc() + timedelta(minutes=config.JWT_EXPIRES_MINUTES)}
+    return jwt.encode(payload, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
 
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
-def hash_password(password):
-    return pwd_context.hash(password)
+def verify_password(password: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode(), hashed.encode())
+    except ValueError:
+        return False
+
+
+def to_object_id(value: str) -> ObjectId:
+    try:
+        return ObjectId(value)
+    except (InvalidId, TypeError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     ensure_db()
-    token = credentials.credentials
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id = payload.get("sub")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        payload = jwt.decode(credentials.credentials, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
+        user_id = payload["sub"]
+    except (jwt.PyJWTError, KeyError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired. Please log in again.")
 
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    user = await db.users.find_one({"_id": to_object_id(user_id)})
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-
     return user
 
 
 def serialize_user(user):
-    return {
-        "id": str(user["_id"]),
-        "name": user.get("name"),
-        "email": user.get("email"),
-    }
+    return {"id": str(user["_id"]), "name": user.get("name"), "email": user.get("email")}
 
 
 def serialize_doc(doc):
+    created = doc.get("createdAt")
     return {
         "id": str(doc["_id"]),
         "title": doc.get("title"),
         "fileSize": doc.get("fileSize"),
         "thumbnailUrl": doc.get("thumbnailUrl"),
-        "createdAt": doc.get("createdAt"),
+        "createdAt": created.isoformat() if isinstance(created, datetime) else created,
     }
+
+
+# Simple per-user rate limit so a public demo can't burn through the Gemini quota.
+_analyze_hits: dict[str, deque] = defaultdict(deque)
+
+
+def check_rate_limit(user_id: str):
+    hits = _analyze_hits[user_id]
+    cutoff = time.time() - 3600
+    while hits and hits[0] < cutoff:
+        hits.popleft()
+    if len(hits) >= config.ANALYZE_RATE_LIMIT_PER_HOUR:
+        raise HTTPException(status_code=429, detail="You've hit the hourly scan limit. Try again later.")
+    hits.append(time.time())
+
+
+def nutrient(key: str, amount, unit: str) -> dict:
+    return {
+        "amount": amount,
+        "unit": unit,
+        "dailyReference": get_daily_reference(key),
+        "percentDailyValue": calculate_daily_value(key, amount),
+    }
+
+
+MACROS = {
+    "calories": "kcal", "totalFat": "g", "saturatedFat": "g", "transFat": "g",
+    "cholesterol": "mg", "sodium": "mg", "totalCarbohydrate": "g", "dietaryFiber": "g",
+    "totalSugars": "g", "addedSugars": "g", "protein": "g",
+}
+MICROS = {"vitaminD": "mcg", "calcium": "mg", "iron": "mg", "potassium": "mg"}
+
+
+# ---------- Routes ----------
 
 @app.get("/")
 def root():
-    return {
-        "message": "NutriScan backend is working"
-    }
+    return {"message": "NutriScan backend is working"}
 
 
-@app.post("/api/auth/signup")
+@app.post("/api/auth/signup", status_code=201)
 async def signup(payload: SignupRequest):
     ensure_db()
-    existing = await db.users.find_one({"email": payload.email.lower()})
-    if existing:
-        raise HTTPException(status_code=400, detail="Account already exists")
+    email = payload.email.lower()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="An account with that email already exists")
 
-    user_doc = {
-        "name": payload.name,
-        "email": payload.email.lower(),
+    user = {
+        "name": payload.name.strip(),
+        "email": email,
         "passwordHash": hash_password(payload.password),
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": now_utc(),
     }
-    result = await db.users.insert_one(user_doc)
-    user_doc["_id"] = result.inserted_id
-
-    token = create_access_token({"sub": str(result.inserted_id)})
-    return {"accessToken": token, "user": serialize_user(user_doc)}
+    result = await db.users.insert_one(user)
+    user["_id"] = result.inserted_id
+    return {"accessToken": create_access_token(str(result.inserted_id)), "user": serialize_user(user)}
 
 
 @app.post("/api/auth/login")
@@ -159,186 +184,76 @@ async def login(payload: LoginRequest):
     user = await db.users.find_one({"email": payload.email.lower()})
     if not user or not verify_password(payload.password, user["passwordHash"]):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
-
-    token = create_access_token({"sub": str(user["_id"])})
-    return {"accessToken": token, "user": serialize_user(user)}
+    return {"accessToken": create_access_token(str(user["_id"])), "user": serialize_user(user)}
 
 
 @app.get("/api/auth/me")
-async def me(current_user = Depends(get_current_user)):
+async def me(current_user=Depends(get_current_user)):
     return serialize_user(current_user)
+
 
 @app.post("/api/analyze")
 async def analyze_label(
     image: UploadFile = File(...),
-    foodName: str = Form("")
+    foodName: str = Form("", max_length=120),
+    current_user=Depends(get_current_user),
 ):
-    try:
-        image_bytes = await image.read()
-        ocr_text = extract_text_from_image(image_bytes)
-    except Exception as error:
-        raise HTTPException(
-            status_code=500,
-            detail=f"OCR failed: {str(error)}"
-        )
+    check_rate_limit(str(current_user["_id"]))
+
+    if image.content_type and not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=415, detail="Please upload an image file (JPG, PNG or WEBP).")
+
+    max_bytes = int(config.MAX_UPLOAD_MB * 1024 * 1024)
+    image_bytes = await image.read(max_bytes + 1)
+    if len(image_bytes) > max_bytes:
+        raise HTTPException(status_code=413, detail=f"Image is larger than {config.MAX_UPLOAD_MB:g}MB.")
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
 
     try:
-        parsed_data = parse_nutrition_text(ocr_text)
+        # OCR is slow and blocking, so run it off the event loop.
+        ocr_text = await run_in_threadpool(extract_text_from_image, image_bytes)
     except Exception as error:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Parser failed: {str(error)}"
-        )
+        raise HTTPException(status_code=422, detail=f"Couldn't read the label: {error}")
 
-    # Extract serving metadata from OCR text
-    servings_per_container = extract_servings_per_container(ocr_text) or 1
-    serving_size = extract_serving_size(ocr_text) or "1 serving"
-    product_name = foodName or extract_product_name(ocr_text) or "Unknown Food"
+    parsed = parse_nutrition_text(ocr_text)
 
-    # Build the full nutrition response
     nutrition_response = {
-      "productName": product_name,
-      "ocrText": ocr_text,
-      "brand": "Example Brand",
-      "servingSize": serving_size,
-      "servingsPerContainer": servings_per_container,
-
-      "macronutrients": {
-        "calories": {
-          "amount": parsed_data["calories"],
-          "unit": "kcal",
-          "dailyReference": get_daily_reference("calories"),
-          "percentDailyValue": calculate_daily_value("calories", parsed_data["calories"])
-        },
-        "totalFat": {
-          "amount": parsed_data["totalFat"],
-          "unit": "g",
-          "dailyReference": get_daily_reference("totalFat"),
-          "percentDailyValue": calculate_daily_value("totalFat", parsed_data["totalFat"])
-        },
-        "saturatedFat": {
-          "amount": parsed_data["saturatedFat"],
-          "unit": "g",
-          "dailyReference": get_daily_reference("saturatedFat"),
-          "percentDailyValue": calculate_daily_value("saturatedFat", parsed_data["saturatedFat"])
-        },
-        "transFat": {
-          "amount": parsed_data["transFat"],
-          "unit": "g",
-          "percentDailyValue": calculate_daily_value("transFat", parsed_data["transFat"])
-        },
-        "cholesterol": {
-          "amount": parsed_data["cholesterol"],
-          "unit": "mg",
-          "dailyReference": get_daily_reference("cholesterol"),
-          "percentDailyValue": calculate_daily_value("cholesterol", parsed_data["cholesterol"])
-        },
-        "sodium": {
-          "amount": parsed_data["sodium"],
-          "unit": "mg",
-          "dailyReference": get_daily_reference("sodium"),
-          "percentDailyValue": calculate_daily_value("sodium", parsed_data["sodium"])
-        },
-        "totalCarbohydrate": {
-          "amount": parsed_data["totalCarbohydrate"],
-          "unit": "g",
-          "dailyReference": get_daily_reference("totalCarbohydrate"),
-          "percentDailyValue": calculate_daily_value("totalCarbohydrate", parsed_data["totalCarbohydrate"])
-        },
-        "dietaryFiber": {
-          "amount": parsed_data["dietaryFiber"],
-          "unit": "g",
-          "dailyReference": get_daily_reference("dietaryFiber"),
-          "percentDailyValue": calculate_daily_value("dietaryFiber", parsed_data["dietaryFiber"])
-        },
-        "totalSugars": {
-          "amount": parsed_data["totalSugars"],
-          "unit": "g",
-          "percentDailyValue": calculate_daily_value("totalSugars", parsed_data["totalSugars"])
-        },
-        "addedSugars": {
-          "amount": parsed_data["addedSugars"],
-          "unit": "g",
-          "dailyReference": get_daily_reference("addedSugars"),
-          "percentDailyValue": calculate_daily_value("addedSugars", parsed_data["addedSugars"])
-        },
-        "protein": {
-          "amount": parsed_data["protein"],
-          "unit": "g",
-          "dailyReference": get_daily_reference("protein"),
-          "percentDailyValue": calculate_daily_value("protein", parsed_data["protein"])
-        }
-      },
-
-      "micronutrients": {
-        "vitaminD": {
-          "amount": parsed_data["vitaminD"],
-          "unit": "mcg",
-          "dailyReference": get_daily_reference("vitaminD"),
-          "percentDailyValue": calculate_daily_value("vitaminD", parsed_data["vitaminD"])
-        },
-        "calcium": {
-          "amount": parsed_data["calcium"],
-          "unit": "mg",
-          "dailyReference": get_daily_reference("calcium"),
-          "percentDailyValue": calculate_daily_value("calcium", parsed_data["calcium"])
-        },
-        "iron": {
-          "amount": parsed_data["iron"],
-          "unit": "mg",
-          "dailyReference": get_daily_reference("iron"),
-          "percentDailyValue": calculate_daily_value("iron", parsed_data["iron"])
-        },
-        "potassium": {
-          "amount": parsed_data["potassium"],
-          "unit": "mg",
-          "dailyReference": get_daily_reference("potassium"),
-          "percentDailyValue": calculate_daily_value("potassium", parsed_data["potassium"])
-        }
-      },
-
-      "ingredients": [
-        {
-          "name": "Example Ingredient",
-          "description": "This is placeholder ingredient information.",
-          "isHealthy": True
-        }
-      ]
+        "productName": foodName.strip() or extract_product_name(ocr_text) or "Unknown Food",
+        "ocrText": ocr_text,
+        "brand": "Example Brand",
+        "servingSize": extract_serving_size(ocr_text) or "1 serving",
+        "servingsPerContainer": extract_servings_per_container(ocr_text) or 1,
+        "macronutrients": {key: nutrient(key, parsed[key], unit) for key, unit in MACROS.items()},
+        "micronutrients": {key: nutrient(key, parsed[key], unit) for key, unit in MICROS.items()},
+        "ingredients": [
+            {
+                "name": "Example Ingredient",
+                "description": "This is placeholder ingredient information.",
+                "isHealthy": True,
+            }
+        ],
     }
 
-    # Generate insights passing the full nutrition response
-    try:
-        insights = generate_insights(nutrition_response, ocr_text)
-    except Exception as error:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Insights failed: {str(error)}"
-        )
-
-    # Attach insights to nutrition response
-    nutrition_response["insights"] = insights
-
+    nutrition_response["insights"] = await run_in_threadpool(generate_insights, nutrition_response, ocr_text)
     return nutrition_response
 
 
 @app.get("/api/docs")
-async def list_docs(current_user = Depends(get_current_user)):
-    ensure_db()
+async def list_docs(current_user=Depends(get_current_user)):
     cursor = db.documents.find({"userId": current_user["_id"]}).sort("createdAt", -1)
-    docs = await cursor.to_list(length=100)
-    return [serialize_doc(doc) for doc in docs]
+    return [serialize_doc(doc) for doc in await cursor.to_list(length=100)]
 
 
-@app.post("/api/docs")
-async def create_doc(payload: DocumentCreate, current_user = Depends(get_current_user)):
-    ensure_db()
+@app.post("/api/docs", status_code=201)
+async def create_doc(payload: DocumentCreate, current_user=Depends(get_current_user)):
     doc = {
         "userId": current_user["_id"],
-        "title": payload.title,
+        "title": payload.title.strip(),
         "fileSize": payload.fileSize,
         "thumbnailUrl": payload.thumbnailUrl,
         "nutritionData": payload.nutritionData,
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": now_utc(),
     }
     result = await db.documents.insert_one(doc)
     doc["_id"] = result.inserted_id
