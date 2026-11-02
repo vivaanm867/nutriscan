@@ -10,6 +10,7 @@ from google.genai import types
 
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 
 def fallback_insights(error_message: str = ""):
@@ -203,7 +204,7 @@ Interpretation rules:
   for attempt in range(3):
     try:
       response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=GEMINI_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(
           response_mime_type="application/json"
