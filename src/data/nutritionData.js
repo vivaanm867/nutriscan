@@ -1,146 +1,5 @@
-// Sample nutrition data for demonstration
-export const sampleNutritionData = {
-  productName: "Organic Greek Yogurt",
-  brand: "Nature's Best",
-  servingSize: "170g (1 container)",
-  servingsPerContainer: 1,
-  
-  macronutrients: {
-    calories: {
-      amount: 150,
-      unit: "kcal",
-      dailyValue: 8,
-    },
-    totalFat: {
-      amount: 4,
-      unit: "g",
-      dailyValue: 5,
-    },
-    saturatedFat: {
-      amount: 2.5,
-      unit: "g",
-      dailyValue: 13,
-    },
-    transFat: {
-      amount: 0,
-      unit: "g",
-      dailyValue: null,
-    },
-    cholesterol: {
-      amount: 15,
-      unit: "mg",
-      dailyValue: 5,
-    },
-    sodium: {
-      amount: 65,
-      unit: "mg",
-      dailyValue: 3,
-    },
-    totalCarbohydrate: {
-      amount: 7,
-      unit: "g",
-      dailyValue: 3,
-    },
-    dietaryFiber: {
-      amount: 0,
-      unit: "g",
-      dailyValue: 0,
-    },
-    totalSugars: {
-      amount: 6,
-      unit: "g",
-      dailyValue: null,
-    },
-    addedSugars: {
-      amount: 0,
-      unit: "g",
-      dailyValue: 0,
-    },
-    protein: {
-      amount: 17,
-      unit: "g",
-      dailyValue: 34,
-    },
-  },
+// Shared nutrition helpers used by the dashboard components.
 
-  micronutrients: {
-    vitaminD: {
-      amount: 0,
-      unit: "mcg",
-      dailyValue: 0,
-    },
-    calcium: {
-      amount: 200,
-      unit: "mg",
-      dailyValue: 15,
-    },
-    iron: {
-      amount: 0,
-      unit: "mg",
-      dailyValue: 0,
-    },
-    potassium: {
-      amount: 240,
-      unit: "mg",
-      dailyValue: 5,
-    },
-    vitaminA: {
-      amount: 80,
-      unit: "mcg",
-      dailyValue: 9,
-    },
-    vitaminC: {
-      amount: 0,
-      unit: "mg",
-      dailyValue: 0,
-    },
-    vitaminB12: {
-      amount: 1.2,
-      unit: "mcg",
-      dailyValue: 50,
-    },
-    phosphorus: {
-      amount: 230,
-      unit: "mg",
-      dailyValue: 18,
-    },
-  },
-
-  ingredients: [
-    {
-      name: "Cultured Pasteurized Organic Nonfat Milk",
-      description: "Milk that has been heat-treated to kill harmful bacteria, then fermented with beneficial probiotic cultures.",
-      isHealthy: true,
-    },
-    {
-      name: "Organic Cream",
-      description: "The fatty part of milk, adds richness and improves texture while providing fat-soluble vitamins.",
-      isHealthy: true,
-    },
-    {
-      name: "Live Active Cultures",
-      description: "Beneficial bacteria including S. thermophilus and L. bulgaricus that support gut health and digestion.",
-      isHealthy: true,
-    },
-  ],
-
-  insights: {
-    healthScore: 85,
-    summary: "This is a nutrient-dense food with excellent protein content and beneficial probiotics. Low in added sugars and a good source of calcium.",
-    highlights: [
-      "High in protein (17g per serving)",
-      "Excellent source of calcium",
-      "Contains live active cultures for gut health",
-      "No added sugars",
-    ],
-    concerns: [
-      "Contains saturated fat (13% DV)",
-      "Not suitable for lactose intolerant individuals",
-    ],
-  },
-}
-
-// Default user goals
 export const defaultGoals = {
   calories: 2000,
   protein: 50,
@@ -175,16 +34,43 @@ export function getDailyValueColor(percentage, isInverse = false) {
   return "text-muted-foreground"
 }
 
-// Calculate macro distribution
+// Calculate the share of calories from protein / carbs / fat.
+// Returns {} if any macro is missing, so the cards don't show misleading percentages.
 export function calculateMacroDistribution(macros) {
-  const proteinCals = macros.protein.amount * 4
-  const carbsCals = macros.totalCarbohydrate.amount * 4
-  const fatCals = macros.totalFat.amount * 9
+  const protein = macros.protein?.amount
+  const carbs = macros.totalCarbohydrate?.amount
+  const fat = macros.totalFat?.amount
+  if (protein == null || carbs == null || fat == null) return {}
+
+  const proteinCals = protein * 4
+  const carbsCals = carbs * 4
+  const fatCals = fat * 9
   const total = proteinCals + carbsCals + fatCals
+
+  if (!total) return {}
 
   return {
     protein: Math.round((proteinCals / total) * 100),
     carbs: Math.round((carbsCals / total) * 100),
     fat: Math.round((fatCals / total) * 100),
+  }
+}
+
+const GOALS_KEY = "nutriscan_goals"
+
+export function loadGoals() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(GOALS_KEY))
+    return saved ? { ...defaultGoals, ...saved } : defaultGoals
+  } catch {
+    return defaultGoals
+  }
+}
+
+export function saveGoals(goals) {
+  try {
+    localStorage.setItem(GOALS_KEY, JSON.stringify(goals))
+  } catch {
+    // storage unavailable (private mode) - goals still work for this session
   }
 }

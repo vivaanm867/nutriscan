@@ -1,4 +1,4 @@
-import { ArrowLeft, Download, Share2 } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { MacronutrientCards } from "@/components/MacronutrientCards"
 import { DailyValueSection } from "@/components/DailyValueSection"
@@ -21,19 +21,9 @@ export function ResultsSection({ nutritionData, onBack, onSave, isSaving }) {
                 Analysis Results
               </h2>
               <p className="text-muted-foreground">
-                {nutritionData.brand} - {nutritionData.servingSize}
+                Serving size: {nutritionData.servingSize}
               </p>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Share2 className="h-4 w-4" />
-              Share
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
           </div>
         </div>
 
@@ -62,10 +52,12 @@ export function ResultsSection({ nutritionData, onBack, onSave, isSaving }) {
           <MicronutrientSection micronutrients={nutritionData.micronutrients} />
         </div>
 
-        {/* Ingredients */}
-        <div className="mt-8">
-          <IngredientCards ingredients={nutritionData.ingredients} />
-        </div>
+        {/* Ingredients (only shown when the label lists them) */}
+        {nutritionData.ingredients?.length > 0 && (
+          <div className="mt-8">
+            <IngredientCards ingredients={nutritionData.ingredients} />
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="mt-12 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
