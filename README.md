@@ -1,10 +1,15 @@
 # NutriScan
 
-Full-stack nutrition label analyzer that extracts nutrition facts from food label images using OCR, parses key nutrients, and generates simple AI-powered health insights.
+Full-stack nutrition label analyzer that reads food label photos with Gemini Vision, parses key nutrients and ingredients, and generates simple AI-powered health insights.
+
+**🔗 Live demo: https://nutriscan-app-2txo.onrender.com**
+*(Hosted on Render's free tier, so the first request may take ~30–50 seconds while the server wakes up.)*
+
+![NutriScan results page](docs/screenshot.png)
 
 ## Overview
 
-NutriScan helps users better understand nutrition labels by turning an uploaded image into structured nutrition data. The system reads the label, extracts important values such as calories, fat, sodium, carbohydrates, sugars, protein, and micronutrients, then presents the results in a clean dashboard with an AI-generated summary.
+NutriScan helps users better understand nutrition labels by turning an uploaded image into structured nutrition data. The system reads the label, extracts important values such as calories, fat, sodium, carbohydrates, sugars, protein, and micronutrients, flags common additives in the ingredient list, then presents the results in a clean dashboard with an AI-generated summary.
 
 The project focuses on making nutrition labels easier to understand for everyday users by combining image processing, backend parsing logic, authentication, database storage, and AI-generated explanations.
 
@@ -12,46 +17,80 @@ The project focuses on making nutrition labels easier to understand for everyday
 
 **Nutrition Analysis Pipeline:**
 
-Image Upload → OCR Text Extraction → Nutrition Fact Parsing → Daily Value Calculation → AI Insight Generation → Dashboard Display
+Image Upload → Image Preprocessing → Gemini Vision Text Extraction → Nutrition & Ingredient Parsing → Daily Value Calculation → AI Insight Generation → Dashboard Display
 
 ### Pipeline Steps
 
 * **Image Input:** User uploads a photo of a nutrition label.
-* **OCR Processing:** EasyOCR extracts raw text from the image.
-* **Nutrition Parsing:** The backend identifies key nutrition values using custom parsing logic.
-* **Daily Value Calculation:** Parsed nutrients are compared against standard daily reference values.
-* **AI Insights:** Gemini generates a readable summary, highlights, concerns, and health score.
+* **Preprocessing:** Pillow auto-rotates phone photos and downscales them to 1600px to cut upload size and API cost.
+* **Text Extraction:** Gemini Vision transcribes the label into a consistent, line-by-line format. Non-label images are rejected.
+* **Nutrition Parsing:** A custom regex parser extracts 15 nutrients, serving size, and servings per container.
+* **Ingredient Analysis:** The ingredient list is split (respecting nested sub-ingredients) and each item is checked against rules for added sugars, artificial colors and sweeteners, preservatives, hydrogenated oils, refined flour, and whole grains.
+* **Daily Value Calculation:** Parsed nutrients are compared against FDA daily reference values.
+* **AI Insights:** Gemini generates a readable summary, highlights, concerns, and a health score, with a rules-based fallback if the API is unavailable.
 * **Frontend Display:** Results are shown in a React dashboard.
 
 ## Key Technical Decisions
 
-* **OCR-Based Label Reading:** Uses EasyOCR to extract text directly from uploaded nutrition label images.
-* **Custom Nutrition Parser:** Backend parsing logic identifies nutrients such as calories, sodium, fat, carbs, sugars, protein, and micronutrients.
+* **Switched from EasyOCR to Gemini Vision:** EasyOCR misread characters on real labels (`0g` → `Og`, `390mg` → `39 omg`, `35g` → `359`), so only **7 of 15** nutrients parsed correctly on a test label. With Gemini Vision producing clean text, the same parser extracted **15 of 15**. It also removed the ~2GB PyTorch dependency, which made free-tier hosting possible.
+* **Custom Nutrition Parser:** Regex-based parsing handles both "Sodium 390mg" and "Includes 33g Added Sugars" formats.
+* **Rule-Based Ingredient Flags:** Deterministic, whole-word keyword rules (so "BHA" doesn't match "alpha") keep ingredient flags fast, free, and explainable.
 * **Daily Value Mapping:** Nutrient values are converted into percent daily values for easier interpretation.
-* **FastAPI Backend:** Handles image uploads, OCR processing, nutrition parsing, authentication, and document storage.
-* **MongoDB Storage:** Stores user accounts and saved nutrition documents.
-* **JWT Authentication:** Protects user-specific routes and saved document data.
-* **Gemini-Powered Insights:** Converts structured nutrition data into simple user-facing explanations.
+* **FastAPI Backend:** Handles image uploads, text extraction, parsing, authentication, and saved scans.
+* **MongoDB Storage:** Stores user accounts and saved nutrition scans (MongoDB Atlas). Scans are scoped to their owner, so users can only open or delete their own.
+* **JWT Authentication:** Uses PyJWT and bcrypt password hashing to protect user-specific routes and the analysis endpoint.
+* **API Protection:** 8MB upload limit, image type validation, and a per-user hourly scan limit to protect the Gemini quota.
+* **Environment-Based Config:** All secrets and settings (database, API keys, allowed origins) come from environment variables.
 * **React Dashboard:** Displays nutrition results in a clean, responsive interface.
 
 ## Features
 
-* Upload nutrition label images
-* Extract text from images using OCR
-* Parse key nutrition facts
-* Calculate percent daily values
+* Upload nutrition label images (including from a phone camera)
+* Extract label text with Gemini Vision
+* Parse key nutrition facts and calculate percent daily values
+* Flag ingredients like added sugars, artificial colors, and preservatives
 * Generate AI-powered nutrition summaries
 * Create an account and log in
-* Save and view nutrition documents
+* Save scans to your history, reopen them, and delete them
 * View results in a dashboard interface
 
 ## Tech Stack
 
 **Frontend:** React, Vite, Tailwind CSS, React Router, Lucide React
 
-**Backend:** Python, FastAPI, EasyOCR, Pillow, MongoDB, Motor, JWT, Gemini API
+**Backend:** Python, FastAPI, Google Gemini (google-genai), Pillow, MongoDB, Motor, PyJWT, bcrypt
 
-**Data Processing:** OCR text extraction, regex-based parsing, daily value calculations
+**Deployment:** Render (FastAPI web service and static site), MongoDB Atlas
+
+## Run Locally
+
+**Requirements:** Python 3.11+, Node.js 20+, a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster, and a free [Gemini API key](https://aistudio.google.com/apikey).
+
+**Backend:**
+
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate          # Mac/Linux: source venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+Copy `backend/.env.example` to `backend/.env` and fill in your values, then:
+
+```bash
+python -m uvicorn main:app --reload
+```
+
+The API runs at http://localhost:8000 (interactive docs at `/docs`).
+
+**Frontend** (new terminal, from the project root):
+
+```bash
+npm install
+npm run dev
+```
+
+The app runs at http://localhost:3000.
 
 ## Development Note
 
@@ -59,21 +98,18 @@ AI tools were used to help generate and style the frontend interface, which was 
 
 ## Current Limitations
 
-* OCR accuracy depends on image quality and label formatting.
-* Some unusual nutrition label layouts may not parse perfectly.
-* Ingredient extraction is still limited.
-* Gemini insights require a valid API key.
+* Accuracy depends on image quality. Blurry or angled photos may miss values.
+* Values are per serving as printed on the label. Non-US label formats may parse less reliably.
+* Ingredient flags are general, keyword-based guidance and may miss uncommon additives.
+* The free hosting tier sleeps when idle, so the first request after a while is slow.
 * The app is intended for general nutrition understanding and should not be used as medical advice.
 
 ## Future Improvements
 
-* Improve image preprocessing before OCR
-* Make the parser more accurate across different label formats
 * Add barcode scanning
-* Add personalized nutrition goals
-* Improve saved scan history
-* Add stronger ingredient analysis
-* Deploy the frontend and backend online
+* Use personalized nutrition goals in the results
+* Compare two products side by side
+* Add automated tests and CI
 
 ## Contact
 
