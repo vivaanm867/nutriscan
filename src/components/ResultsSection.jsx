@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Check } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { MacronutrientCards } from "@/components/MacronutrientCards"
 import { DailyValueSection } from "@/components/DailyValueSection"
@@ -6,7 +6,7 @@ import { MicronutrientSection } from "@/components/MicronutrientSection"
 import { IngredientCards } from "@/components/IngredientCards"
 import { NutritionSummary } from "@/components/NutritionSummary"
 
-export function ResultsSection({ nutritionData, onBack, onSave, isSaving }) {
+export function ResultsSection({ nutritionData, onBack, onSave, isSaving, isSaved }) {
   return (
     <section id="results" className="bg-background py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -64,8 +64,17 @@ export function ResultsSection({ nutritionData, onBack, onSave, isSaving }) {
           <Button onClick={onBack} variant="outline" size="lg">
             Scan Another Label
           </Button>
-          <Button size="lg" className="gap-2" onClick={onSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save to History"}
+          <Button size="lg" className="gap-2" onClick={onSave} disabled={isSaving || isSaved}>
+            {isSaved ? (
+              <>
+                <Check className="h-4 w-4" />
+                Saved to History
+              </>
+            ) : isSaving ? (
+              "Saving..."
+            ) : (
+              "Save to History"
+            )}
           </Button>
         </div>
       </div>

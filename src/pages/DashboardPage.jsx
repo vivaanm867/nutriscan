@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react"
+import { Trash2 } from "lucide-react"
 import { ImageUploadSection } from "@/components/ImageUploadSection"
 import { ResultsSection } from "@/components/ResultsSection"
 import { GoalsPanel } from "@/components/GoalsPanel"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
+import { Button } from "@/components/ui/Button"
 import { defaultGoals } from "@/data/nutritionData"
 import { useAuth, useAuthedFetch } from "@/context/AuthContext"
 
@@ -13,6 +15,8 @@ export function DashboardPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [nutritionData, setNutritionData] = useState(null)
+  // ID of the saved scan being shown (null = not saved yet). Prevents saving the same scan twice.
+  const [savedDocId, setSavedDocId] = useState(null)
   const [goals, setGoals] = useState(defaultGoals)
   const [documents, setDocuments] = useState([])
   const [docError, setDocError] = useState("")
@@ -30,6 +34,13 @@ export function DashboardPage() {
   useEffect(() => {
     loadDocuments()
   }, [loadDocuments])
+
+  const showResults = (data, docId = null) => {
+    setNutritionData(data)
+    setSavedDocId(docId)
+    setCurrentView("results")
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
 
   const handleAnalyze = async ({ image, foodName }) => {
     setIsAnalyzing(true)
@@ -53,10 +64,7 @@ export function DashboardPage() {
         throw new Error("Failed to analyze nutrition label")
       }
 
-      const data = await response.json()
-      setNutritionData(data)
-      setCurrentView("results")
-      window.scrollTo({ top: 0, behavior: "smooth" })
+      showResults(await response.json())
     } catch (error) {
       console.error(error)
       alert("Something went wrong while trying to analyze the nutrition label.")
@@ -66,22 +74,21 @@ export function DashboardPage() {
   }
 
   const handleSave = async () => {
-    if (!nutritionData) {
+    if (!nutritionData || savedDocId) {
       return
     }
 
     setIsSaving(true)
     try {
-      await authedFetch("/api/docs", {
+      const saved = await authedFetch("/api/docs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: nutritionData.productName,
-          fileSize: null,
-          thumbnailUrl: null,
           nutritionData,
         }),
       })
+      setSavedDocId(saved.id)
       await loadDocuments()
     } catch (error) {
       console.error(error)
@@ -91,9 +98,38 @@ export function DashboardPage() {
     }
   }
 
+  const handleOpenDoc = async (doc) => {
+    setDocError("")
+    try {
+      const fullDoc = await authedFetch(`/api/docs/${doc.id}`)
+      showResults(fullDoc.nutritionData, fullDoc.id)
+    } catch (error) {
+      setDocError(error.message)
+    }
+  }
+
+  const handleDeleteDoc = async (doc) => {
+    if (!window.confirm(`Delete "${doc.title}" from your history?`)) {
+      return
+    }
+
+    setDocError("")
+    try {
+      await authedFetch(`/api/docs/${doc.id}`, { method: "DELETE" })
+      setDocuments((prev) => prev.filter((d) => d.id !== doc.id))
+      // If the deleted scan is open on screen, allow it to be saved again
+      if (savedDocId === doc.id) {
+        setSavedDocId(null)
+      }
+    } catch (error) {
+      setDocError(error.message)
+    }
+  }
+
   const handleBackToScan = () => {
     setCurrentView("scan")
     setNutritionData(null)
+    setSavedDocId(null)
   }
 
   return (
@@ -120,6 +156,7 @@ export function DashboardPage() {
           onBack={handleBackToScan}
           onSave={handleSave}
           isSaving={isSaving}
+          isSaved={Boolean(savedDocId)}
         />
       )}
 
@@ -144,14 +181,32 @@ export function DashboardPage() {
                   {documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="rounded-xl border border-border bg-muted/30 p-4"
+                      className={`flex items-center gap-2 rounded-xl border bg-muted/30 p-4 transition-colors hover:border-primary/50 ${
+                        doc.id === savedDocId ? "border-primary" : "border-border"
+                      }`}
                     >
-                      <h3 className="text-base font-semibold text-foreground">
-                        {doc.title}
-                      </h3>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Scanned {new Date(doc.createdAt).toLocaleString()}
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDoc(doc)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <h3 className="truncate text-base font-semibold text-foreground">
+                          {doc.title}
+                        </h3>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {doc.calories != null && `${doc.calories} kcal · `}
+                          {doc.healthScore != null && `Score ${doc.healthScore} · `}
+                          Scanned {new Date(doc.createdAt).toLocaleString()}
+                        </p>
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteDoc(doc)}
+                        aria-label={`Delete ${doc.title}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
                     </div>
                   ))}
                 </div>

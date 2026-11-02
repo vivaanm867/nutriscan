@@ -13,18 +13,6 @@ load_dotenv(dotenv_path=env_path)
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 
-def fallback_insights(error_message: str = ""):
-  return {
-    "healthScore": 70,
-    "summary": "Nutrition insights are temporarily unavailable, but basic nutrition data was extracted.",
-    "highlights": [],
-    "concerns": [
-      "Could not generate AI nutrition insights right now."
-    ],
-    "debugError": error_message,
-  }
-
-
 def local_insights_from_parsed_data(nutrition_response: dict):
   macro = nutrition_response.get("macronutrients", {})
   micro = nutrition_response.get("micronutrients", {})
@@ -155,9 +143,7 @@ def generate_insights(nutrition_response: dict, ocr_text: str = ""):
   api_key = os.getenv("GEMINI_API_KEY")
 
   if not api_key:
-    return fallback_insights(
-      "GEMINI_API_KEY was not found. Check that backend/.env contains GEMINI_API_KEY=your_key_here."
-    )
+    return local_insights_from_parsed_data(nutrition_response)
 
   client = genai.Client(api_key=api_key)
 
@@ -240,5 +226,4 @@ Interpretation rules:
   print("Gemini insights error:", last_error)
 
   local = local_insights_from_parsed_data(nutrition_response)
-  local["debugError"] = last_error
   return local

@@ -18,6 +18,7 @@ from daily_values import calculate_daily_value, get_daily_reference
 from insights import generate_insights
 from ocr import extract_text_from_image
 from parser import (
+    extract_ingredients,
     extract_product_name,
     extract_serving_size,
     extract_servings_per_container,
@@ -54,9 +55,7 @@ class LoginRequest(BaseModel):
 
 class DocumentCreate(BaseModel):
     title: str = Field(min_length=1, max_length=120)
-    fileSize: int | None = None
-    thumbnailUrl: str | None = None
-    nutritionData: dict | None = None
+    nutritionData: dict
 
 
 # ---------- Helpers ----------
@@ -111,15 +110,27 @@ def serialize_user(user):
     return {"id": str(user["_id"]), "name": user.get("name"), "email": user.get("email")}
 
 
-def serialize_doc(doc):
+def serialize_doc(doc, include_data: bool = False):
     created = doc.get("createdAt")
-    return {
+    data = doc.get("nutritionData") or {}
+    result = {
         "id": str(doc["_id"]),
         "title": doc.get("title"),
-        "fileSize": doc.get("fileSize"),
-        "thumbnailUrl": doc.get("thumbnailUrl"),
         "createdAt": created.isoformat() if isinstance(created, datetime) else created,
+        # Small summary so the history list can show it without loading the full scan
+        "calories": (data.get("macronutrients", {}).get("calories") or {}).get("amount"),
+        "healthScore": (data.get("insights") or {}).get("healthScore"),
     }
+    if include_data:
+        result["nutritionData"] = data
+    return result
+
+
+def doc_id_or_404(doc_id: str) -> ObjectId:
+    try:
+        return ObjectId(doc_id)
+    except (InvalidId, TypeError):
+        raise HTTPException(status_code=404, detail="Scan not found")
 
 
 # Simple per-user rate limit so a public demo can't burn through the Gemini quota.
@@ -225,7 +236,7 @@ async def analyze_label(
         "servingsPerContainer": extract_servings_per_container(ocr_text) or 1,
         "macronutrients": {key: nutrient(key, parsed[key], unit) for key, unit in MACROS.items()},
         "micronutrients": {key: nutrient(key, parsed[key], unit) for key, unit in MICROS.items()},
-        "ingredients": [],
+        "ingredients": extract_ingredients(ocr_text),
     }
 
     nutrition_response["insights"] = await run_in_threadpool(generate_insights, nutrition_response, ocr_text)
@@ -243,11 +254,26 @@ async def create_doc(payload: DocumentCreate, current_user=Depends(get_current_u
     doc = {
         "userId": current_user["_id"],
         "title": payload.title.strip(),
-        "fileSize": payload.fileSize,
-        "thumbnailUrl": payload.thumbnailUrl,
         "nutritionData": payload.nutritionData,
         "createdAt": now_utc(),
     }
     result = await db.documents.insert_one(doc)
     doc["_id"] = result.inserted_id
     return serialize_doc(doc)
+
+
+@app.get("/api/docs/{doc_id}")
+async def get_doc(doc_id: str, current_user=Depends(get_current_user)):
+    # Filtering by userId too means users can only open their own scans
+    doc = await db.documents.find_one({"_id": doc_id_or_404(doc_id), "userId": current_user["_id"]})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return serialize_doc(doc, include_data=True)
+
+
+@app.delete("/api/docs/{doc_id}")
+async def delete_doc(doc_id: str, current_user=Depends(get_current_user)):
+    result = await db.documents.delete_one({"_id": doc_id_or_404(doc_id), "userId": current_user["_id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return {"deleted": True}

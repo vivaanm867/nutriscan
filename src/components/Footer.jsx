@@ -1,4 +1,4 @@
-import { Leaf, Github, Twitter } from "lucide-react"
+import { Leaf, Github } from "lucide-react"
 
 export function Footer() {
   return (
@@ -14,44 +14,34 @@ export function Footer() {
           </div>
 
           {/* Links */}
-          <nav className="flex flex-wrap justify-center gap-6">
-            <a href="#" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Privacy Policy
+          <p className="text-sm text-muted-foreground">
+            Built by{" "}
+            <a
+              href="https://github.com/vivaanm867"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-foreground hover:underline"
+            >
+              Vivaan Motwani
             </a>
-            <a href="#" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Terms of Service
-            </a>
-            <a href="#" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Contact
-            </a>
-            <a href="#" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              FAQ
-            </a>
-          </nav>
+          </p>
 
-          {/* Social Links */}
-          <div className="flex items-center gap-4">
-            <a 
-              href="#" 
-              className="text-muted-foreground transition-colors hover:text-foreground"
-              aria-label="GitHub"
-            >
-              <Github className="h-5 w-5" />
-            </a>
-            <a 
-              href="#" 
-              className="text-muted-foreground transition-colors hover:text-foreground"
-              aria-label="Twitter"
-            >
-              <Twitter className="h-5 w-5" />
-            </a>
-          </div>
+          <a
+            href="https://github.com/vivaanm867/nutriscan"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="View source on GitHub"
+          >
+            <Github className="h-5 w-5" />
+            Source code
+          </a>
         </div>
 
         {/* Copyright */}
         <div className="mt-8 border-t border-border pt-8 text-center">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} NutriScan. All rights reserved.
+            &copy; {new Date().getFullYear()} NutriScan
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             Nutrition information is for educational purposes only. Always consult healthcare professionals for dietary advice.

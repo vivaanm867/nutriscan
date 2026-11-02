@@ -10,14 +10,6 @@ export const defaultGoals = {
   sugar: 50,
 }
 
-// Nutrition rating thresholds
-export const nutritionRatings = {
-  excellent: { min: 20, color: "success" },
-  good: { min: 10, max: 19, color: "primary" },
-  moderate: { min: 5, max: 9, color: "warning" },
-  low: { max: 4, color: "muted" },
-}
-
 // Get color class based on daily value percentage
 export function getDailyValueColor(percentage, isInverse = false) {
   if (isInverse) {
@@ -34,7 +26,7 @@ export function getDailyValueColor(percentage, isInverse = false) {
   return "text-muted-foreground"
 }
 
-// Calculate the share of calories from protein / carbs / fat.
+// Calculate the share of calories from protein / carbs / fat (null-safe)
 // Returns {} if any macro is missing, so the cards don't show misleading percentages.
 export function calculateMacroDistribution(macros) {
   const protein = macros.protein?.amount
@@ -53,24 +45,5 @@ export function calculateMacroDistribution(macros) {
     protein: Math.round((proteinCals / total) * 100),
     carbs: Math.round((carbsCals / total) * 100),
     fat: Math.round((fatCals / total) * 100),
-  }
-}
-
-const GOALS_KEY = "nutriscan_goals"
-
-export function loadGoals() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(GOALS_KEY))
-    return saved ? { ...defaultGoals, ...saved } : defaultGoals
-  } catch {
-    return defaultGoals
-  }
-}
-
-export function saveGoals(goals) {
-  try {
-    localStorage.setItem(GOALS_KEY, JSON.stringify(goals))
-  } catch {
-    // storage unavailable (private mode) - goals still work for this session
   }
 }

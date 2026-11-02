@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { ShieldCheck, ScanLine, Sparkles, Layers } from "lucide-react"
+import { Layers } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { HeroSection } from "@/components/HeroSection"
 
@@ -26,7 +26,6 @@ export function LandingPage() {
         onSecondary={() => navigate("/login")}
       />
 
-
       <section id="benefits" className="bg-background py-16 sm:py-24">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:items-center lg:px-8">
           <div>
@@ -49,11 +48,11 @@ export function LandingPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <BenefitCard
               title="Saved Scan Library"
-              description="Keep a searchable history of every label you've analyzed."
+              description="Keep a history of every label you've analyzed and reopen it anytime."
             />
             <BenefitCard
-              title="Goal Tracking"
-              description="Match nutrition data to your health goals automatically."
+              title="Daily Value Breakdown"
+              description="See how each serving compares to FDA daily values at a glance."
             />
             <BenefitCard
               title="Faster Decisions"
@@ -82,18 +81,6 @@ export function LandingPage() {
           </Button>
         </div>
       </section>
-    </div>
-  )
-}
-
-function FeatureCard({ icon, title, description }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-        {icon}
-      </div>
-      <h3 className="mt-4 text-lg font-semibold text-card-foreground">{title}</h3>
-      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
     </div>
   )
 }

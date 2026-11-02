@@ -1,18 +1,26 @@
-import { Check, Info } from "lucide-react"
+import { Check, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 
 export function IngredientCards({ ingredients }) {
+  const flaggedCount = ingredients.filter((ingredient) => !ingredient.isHealthy).length
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex flex-wrap items-center gap-2">
           Ingredient Breakdown
           <Badge variant="secondary">{ingredients.length} items</Badge>
+          {flaggedCount > 0 && (
+            <Badge variant="warning">{flaggedCount} flagged</Badge>
+          )}
         </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Listed by weight, from most to least. Flags are general guidance, not medical advice.
+        </p>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
           {ingredients.map((ingredient, index) => (
             <div 
               key={index}
@@ -27,16 +35,18 @@ export function IngredientCards({ ingredients }) {
                   {ingredient.isHealthy ? (
                     <Check className="h-4 w-4" />
                   ) : (
-                    <Info className="h-4 w-4" />
+                    <AlertTriangle className="h-4 w-4" />
                   )}
                 </div>
                 <div className="flex-1">
                   <h4 className="font-semibold text-foreground">
                     {ingredient.name}
                   </h4>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {ingredient.description}
-                  </p>
+                  {ingredient.description && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {ingredient.description}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

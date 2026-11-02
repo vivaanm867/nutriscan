@@ -17,10 +17,10 @@ export function HeroSection({
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-sm">
-  <Sparkles className="h-4 w-4" />
-  Built for smarter nutrition decisions
-</div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400">
+            <Sparkles className="h-4 w-4" />
+            Built for smarter nutrition decisions
+          </div>
 
           {/* Headline */}
           <h1 className="mx-auto max-w-4xl text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
@@ -33,16 +33,6 @@ export function HeroSection({
             NutriScan turns labels into insights and keeps your scans organized in a personal
             dashboard so you can make faster, healthier choices.
           </p>
-
-          <section className="grid items-center gap-12 lg:grid-cols-2">
-  <div>
-    {/* badge, heading, paragraph, buttons */}
-  </div>
-
-  <div>
-    {/* sample scan result card */}
-  </div>
-</section>
 
           {/* CTA Buttons */}
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -73,7 +63,7 @@ export function HeroSection({
         </div>
 
         {/* Feature cards preview */}
-        <div className="mt-16 grid gap-6 sm:grid-cols-3">
+        <div id="features" className="mt-16 grid scroll-mt-20 gap-6 sm:grid-cols-3">
           <FeatureCard
             icon={<Shield className="h-6 w-6" />}
             title="📸 Label Scanning"
