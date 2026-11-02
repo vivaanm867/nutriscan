@@ -11,7 +11,7 @@ export function DailyValueSection({ macros }) {
     { key: "totalCarbohydrate", label: "Total Carbohydrate", isInverse: false },
     { key: "dietaryFiber", label: "Dietary Fiber", isInverse: false },
     { key: "protein", label: "Protein", isInverse: false },
-  ].filter(n => macros[n.key]?.dailyValue !== null)
+  ].filter(n => macros[n.key]?.amount != null && macros[n.key]?.percentDailyValue != null)
 
   return (
     <Card>
@@ -29,7 +29,7 @@ export function DailyValueSection({ macros }) {
             const nutrient = macros[key]
             if (!nutrient) return null
             
-            const dv = nutrient.dailyValue || 0
+            const dv = nutrient.percentDailyValue || 0
             const colorClass = getDailyValueColor(dv, isInverse)
             
             return (

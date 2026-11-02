@@ -13,7 +13,7 @@ export function MacronutrientCards({ macros }) {
       icon: Flame,
       color: "text-accent",
       bgColor: "bg-accent/10",
-      dailyValue: macros.calories.dailyValue,
+      dailyValue: macros.calories.percentDailyValue,
     },
     {
       label: "Protein",
@@ -22,7 +22,7 @@ export function MacronutrientCards({ macros }) {
       icon: Drumstick,
       color: "text-chart-1",
       bgColor: "bg-chart-1/10",
-      dailyValue: macros.protein.dailyValue,
+      dailyValue: macros.protein.percentDailyValue,
       percentage: distribution.protein,
     },
     {
@@ -32,7 +32,7 @@ export function MacronutrientCards({ macros }) {
       icon: Wheat,
       color: "text-chart-2",
       bgColor: "bg-chart-2/10",
-      dailyValue: macros.totalCarbohydrate.dailyValue,
+      dailyValue: macros.totalCarbohydrate.percentDailyValue,
       percentage: distribution.carbs,
     },
     {
@@ -42,7 +42,7 @@ export function MacronutrientCards({ macros }) {
       icon: Droplets,
       color: "text-chart-3",
       bgColor: "bg-chart-3/10",
-      dailyValue: macros.totalFat.dailyValue,
+      dailyValue: macros.totalFat.percentDailyValue,
       percentage: distribution.fat,
     },
   ]
@@ -71,11 +71,13 @@ function MacroCard({ label, value, unit, icon: Icon, color, bgColor, dailyValue,
       </CardHeader>
       <CardContent>
         <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-bold text-foreground">{value}</span>
-          <span className="text-lg text-muted-foreground">{unit}</span>
+          <span className="text-3xl font-bold text-foreground">{value ?? "—"}</span>
+          {value !== null && value !== undefined && (
+            <span className="text-lg text-muted-foreground">{unit}</span>
+          )}
         </div>
         <div className="mt-2 flex items-center gap-3 text-sm">
-          {dailyValue !== null && (
+          {dailyValue !== null && dailyValue !== undefined && (
             <span className="text-muted-foreground">
               {dailyValue}% Daily Value
             </span>

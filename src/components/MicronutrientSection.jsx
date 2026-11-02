@@ -12,7 +12,7 @@ export function MicronutrientSection({ micronutrients }) {
     { key: "vitaminC", label: "Vitamin C" },
     { key: "vitaminB12", label: "Vitamin B12" },
     { key: "phosphorus", label: "Phosphorus" },
-  ].filter(m => micronutrients[m.key])
+  ].filter(m => micronutrients[m.key]?.amount != null)
 
   return (
     <Card>
@@ -23,7 +23,7 @@ export function MicronutrientSection({ micronutrients }) {
         <div className="grid gap-3 sm:grid-cols-2">
           {microData.map(({ key, label }) => {
             const nutrient = micronutrients[key]
-            const dv = nutrient.dailyValue
+            const dv = nutrient.percentDailyValue ?? 0
             const colorClass = getDailyValueColor(dv, false)
             
             let badgeVariant = "secondary"
@@ -38,7 +38,7 @@ export function MicronutrientSection({ micronutrients }) {
               >
                 <div>
                   <p className="font-medium text-foreground">{label}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className={`text-sm ${colorClass}`}>
                     {nutrient.amount}{nutrient.unit}
                   </p>
                 </div>
@@ -50,10 +50,9 @@ export function MicronutrientSection({ micronutrients }) {
           })}
         </div>
         
-        {/* No significant micronutrients message */}
-        {microData.filter(m => micronutrients[m.key]?.dailyValue > 0).length === 0 && (
+        {microData.length === 0 && (
           <p className="text-center text-muted-foreground">
-            No significant vitamins or minerals detected
+            No vitamins or minerals were listed on this label
           </p>
         )}
       </CardContent>
