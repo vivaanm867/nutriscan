@@ -221,18 +221,11 @@ async def analyze_label(
     nutrition_response = {
         "productName": foodName.strip() or extract_product_name(ocr_text) or "Unknown Food",
         "ocrText": ocr_text,
-        "brand": "Example Brand",
         "servingSize": extract_serving_size(ocr_text) or "1 serving",
         "servingsPerContainer": extract_servings_per_container(ocr_text) or 1,
         "macronutrients": {key: nutrient(key, parsed[key], unit) for key, unit in MACROS.items()},
         "micronutrients": {key: nutrient(key, parsed[key], unit) for key, unit in MICROS.items()},
-        "ingredients": [
-            {
-                "name": "Example Ingredient",
-                "description": "This is placeholder ingredient information.",
-                "isHealthy": True,
-            }
-        ],
+        "ingredients": [],
     }
 
     nutrition_response["insights"] = await run_in_threadpool(generate_insights, nutrition_response, ocr_text)
