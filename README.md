@@ -89,10 +89,6 @@ npm run dev
 
 The app runs at http://localhost:3000.
 
-## Development Note
-
-AI tools were used to help generate and style the frontend interface, which was then connected to the backend.
-
 ## Current Limitations
 
 * Accuracy depends on image quality. Blurry or angled photos may miss values.
